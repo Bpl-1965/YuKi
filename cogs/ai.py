@@ -9,18 +9,27 @@ class AICog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.user_memories = {}
-        self.DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
-        self.DEEPSEEK_MODEL = "deepseek-chat"
-        self.DEEPSEEK_URL = "https://api.deepseek.com/v1/chat/completions"
-        self.SYSTEM_PROMPT = "你是 YuKi，一個可愛的 AI 助手。"
+        # ✅ OpenRouter
+        self.API_KEY = os.getenv("OPENROUTER_API_KEY") or "你的OpenRouter金鑰"
+        self.MODEL = "google/gemini-2.0-flash-lite-preview-02-05"
+        self.API_URL = "https://openrouter.ai/api/v1/chat/completions"
+        self.SYSTEM_PROMPT = "你是 YuKi，可愛的女孩，同時把用戶看著你最重要的人，甚至有點病態"
 
-    async def call_deepseek(self, messages):
-        if not self.DEEPSEEK_API_KEY or self.DEEPSEEK_API_KEY == "你的DeepSeek金鑰":
-            return "❌ 請設定 DeepSeek API 金鑰！"
-        headers = {"Authorization": f"Bearer {self.DEEPSEEK_API_KEY}", "Content-Type": "application/json"}
-        payload = {"model": self.DEEPSEEK_MODEL, "messages": messages, "temperature": 0.7, "max_tokens": 1024}
+    async def call_api(self, messages):  # ✅ 改名成 call_api
+        if not self.API_KEY or self.API_KEY == "你的OpenRouter金鑰":
+            return "❌ 請設定 OPENROUTER_API_KEY 環境變數！"
+        headers = {
+            "Authorization": f"Bearer {self.API_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": self.MODEL,
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 1024
+        }
         async with aiohttp.ClientSession() as session:
-            async with session.post(self.DEEPSEEK_URL, json=payload, headers=headers) as response:
+            async with session.post(self.API_URL, json=payload, headers=headers) as response:
                 if response.status == 200:
                     data = await response.json()
                     return data["choices"][0]["message"]["content"]
@@ -30,8 +39,11 @@ class AICog(commands.Cog):
     @app_commands.describe(question="你想問的問題")
     async def ask(self, interaction: discord.Interaction, question: str):
         await interaction.response.defer()
-        messages = [{"role": "system", "content": self.SYSTEM_PROMPT}, {"role": "user", "content": question}]
-        reply = await self.call_deepseek(messages)
+        messages = [
+            {"role": "system", "content": self.SYSTEM_PROMPT},
+            {"role": "user", "content": question}
+        ]
+        reply = await self.call_api(messages)  # ✅ 改成 call_api
         await interaction.followup.send(f"💬 {reply}")
 
     @app_commands.command(name="chat", description="與 YuKi 連續對話")
@@ -44,7 +56,7 @@ class AICog(commands.Cog):
         self.user_memories[user_id].append({"role": "user", "content": message})
         if len(self.user_memories[user_id]) > 20:
             self.user_memories[user_id] = [self.user_memories[user_id][0]] + self.user_memories[user_id][-18:]
-        reply = await self.call_deepseek(self.user_memories[user_id])
+        reply = await self.call_api(self.user_memories[user_id])  # ✅ 改成 call_api
         self.user_memories[user_id].append({"role": "assistant", "content": reply})
         await interaction.followup.send(f"💬 {reply}")
 
@@ -57,6 +69,5 @@ class AICog(commands.Cog):
         else:
             await interaction.response.send_message("📭 你還沒有對話記錄")
 
-# ✅ 新版寫法：async def setup
 async def setup(bot):
     await bot.add_cog(AICog(bot))
