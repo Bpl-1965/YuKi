@@ -1,4 +1,4 @@
-import discord
+        import discord
 from discord import app_commands
 from discord.ext import commands
 import aiohttp
@@ -11,7 +11,7 @@ class AICog(commands.Cog):
         self.user_memories = {}
         # ✅ OpenRouter
         self.API_KEY = os.getenv("OPENROUTER_API_KEY") or "你的OpenRouter金鑰"
-        self.MODEL = "nemotron/nemotron-3.5-lightning"  # ✅ 免費模型
+        self.MODEL = "nvidia/nemotron-3.5-lightning"  # ✅ 修正
         self.API_URL = "https://openrouter.ai/api/v1/chat/completions"
         self.SYSTEM_PROMPT = "你是 YuKi，一個可愛、友善的 AI 助手。你喜歡幫助別人，說話風格活潑開朗。你會用繁體中文回覆。"
 
