@@ -11,7 +11,7 @@ class AICog(commands.Cog):
         self.user_memories = {}
         # ✅ OpenRouter
         self.API_KEY = os.getenv("OPENROUTER_API_KEY") or "你的OpenRouter金鑰"
-        self.MODEL = "google/gemini-2.0-flash-lite"  # ✅ 修正模型名稱
+        self.MODEL = "nemotron/nemotron-3.5-lightning"  # ✅ 免費模型
         self.API_URL = "https://openrouter.ai/api/v1/chat/completions"
         self.SYSTEM_PROMPT = "你是 YuKi，一個可愛、友善的 AI 助手。你喜歡幫助別人，說話風格活潑開朗。你會用繁體中文回覆。"
 
