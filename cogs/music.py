@@ -20,7 +20,6 @@ class MusicCog(commands.Cog):
         self.is_playing = {}
         self.last_message_time = {}
         
-        # 播放清單儲存
         self.playlists = {}
         self.playlist_file = "playlists.json"
         self.load_playlists()
@@ -68,7 +67,6 @@ class MusicCog(commands.Cog):
 
     # ========== 本地 MP3 管理 ==========
     def get_local_songs(self):
-        """獲取 mp3 資料夾中的所有歌曲"""
         mp3_folder = "mp3"
         if not os.path.exists(mp3_folder):
             return []
@@ -138,7 +136,6 @@ class MusicCog(commands.Cog):
         
         is_loop = self.loop.get(guild_id, False)
         
-        # 循環播放
         if is_loop and guild_id in self.current_song_info:
             song_info = self.current_song_info[guild_id]
             title = song_info.get('title', '未知歌曲')
@@ -178,7 +175,6 @@ class MusicCog(commands.Cog):
                 self.loop[guild_id] = False
                 return
         
-        # 檢查佇列
         if guild_id not in self.music_queues or not self.music_queues[guild_id]:
             print("📭 佇列已空")
             return
@@ -259,46 +255,42 @@ class MusicCog(commands.Cog):
             await interaction.followup.send(f"❌ 上傳失敗：{e}", ephemeral=True)
 
     # ========== /local ==========
-    @bot.tree.command(name="local", description="隨機播放本地 MP3")
-async def play_local(self, interaction: discord.Interaction):
-    local_songs = self.get_local_songs()
-    
-    if not local_songs:
-        await interaction.response.send_message("❌ mp3 資料夾中沒有歌曲！")
-        return
-    
-    # ✅ 先回覆，避免超時
-    await interaction.response.defer()
-    
-    if not interaction.user.voice:
-        await interaction.followup.send("❌ 你沒有在語音頻道中！")
-        return
-    
-    voice_channel = interaction.user.voice.channel
-    voice_client = interaction.guild.voice_client
-    if not voice_client:
-        voice_client = await voice_channel.connect()
-    elif voice_client.channel != voice_channel:
-        await voice_client.move_to(voice_channel)
-    
-    # 隨機選一首
-    song = random.choice(local_songs)
-    
-    # ✅ 檢查檔案是否存在
-    if not os.path.exists(song['path']):
-        await interaction.followup.send(f"❌ 檔案不存在：{song['path']}")
-        return
-    
-    # ✅ 直接播放（不經過佇列）
-    audio = discord.FFmpegPCMAudio(song['path'], **self.ffmpeg_options)
-    
-    def after_playing(error):
-        if error:
-            print(f"播放錯誤：{error}")
-    
-    voice_client.play(audio, after=after_playing)
-    
-    await interaction.followup.send(f"🎵 正在播放：**{song['title']}**")
+    @app_commands.command(name="local", description="隨機播放本地 MP3")
+    async def play_local(self, interaction: discord.Interaction):
+        local_songs = self.get_local_songs()
+        
+        if not local_songs:
+            await interaction.response.send_message("❌ mp3 資料夾中沒有歌曲！")
+            return
+        
+        await interaction.response.defer()
+        
+        if not interaction.user.voice:
+            await interaction.followup.send("❌ 你沒有在語音頻道中！")
+            return
+        
+        voice_channel = interaction.user.voice.channel
+        voice_client = interaction.guild.voice_client
+        if not voice_client:
+            voice_client = await voice_channel.connect()
+        elif voice_client.channel != voice_channel:
+            await voice_client.move_to(voice_channel)
+        
+        song = random.choice(local_songs)
+        
+        if not os.path.exists(song['path']):
+            await interaction.followup.send(f"❌ 檔案不存在：{song['path']}")
+            return
+        
+        audio = discord.FFmpegPCMAudio(song['path'], **self.ffmpeg_options)
+        
+        def after_playing(error):
+            if error:
+                print(f"播放錯誤：{error}")
+        
+        voice_client.play(audio, after=after_playing)
+        
+        await interaction.followup.send(f"🎵 正在播放：**{song['title']}**")
 
     # ========== /play ==========
     @app_commands.command(name="play", description="播放音樂")
@@ -320,7 +312,6 @@ async def play_local(self, interaction: discord.Interaction):
         if guild_id not in self.music_queues:
             self.music_queues[guild_id] = []
         
-        # ✅ 檢查是否為本地播放指令
         local_songs = self.get_local_songs()
         if query.lower() in ["local", "隨機", "random"] and local_songs:
             song = random.choice(local_songs)
@@ -339,7 +330,6 @@ async def play_local(self, interaction: discord.Interaction):
                 await self.play_next(interaction.guild, interaction.channel)
             return
         
-        # YouTube 播放
         try:
             async with interaction.channel.typing():
                 audio, title, audio_url = await self.get_audio(query)
