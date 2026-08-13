@@ -25,7 +25,8 @@ class MusicCog(commands.Cog):
         # ✅ FFmpeg 設定（Railway 專用）
         self.ffmpeg_options = {
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
-            'options': '-vn'
+            'options': '-vn',
+            'executable': '/usr/bin/ffmpeg'  # ✅ 加上這行
         }
         
         # ✅ yt-dlp 設定（不下載，只串流）
