@@ -303,34 +303,47 @@ class MusicCog(commands.Cog):
         await interaction.response.send_message("▶️ 已繼續")
 
     # ========== /join ==========
-    @app_commands.command(name="join", description="機器人加入語音頻道")
-    async def join(self, interaction: discord.Interaction):
-        if not interaction.user.voice:
-            await interaction.response.send_message("❌ 你沒有在語音頻道中！", ephemeral=True)
-            return
-        voice_channel = interaction.user.voice.channel
-        voice_client = interaction.guild.voice_client
+@bot.tree.command(name="join", description="機器人加入語音頻道")
+async def join(self, interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)  # ✅ 先延遲回應
+    
+    if not interaction.user.voice:
+        await interaction.followup.send("❌ 你沒有在語音頻道中！", ephemeral=True)
+        return
+    
+    voice_channel = interaction.user.voice.channel
+    voice_client = interaction.guild.voice_client
+    
+    try:
         if voice_client:
             await voice_client.move_to(voice_channel)
         else:
             await voice_channel.connect()
-        await interaction.response.send_message(f"✅ 已加入 {voice_channel.name}！", ephemeral=True)
+        await interaction.followup.send(f"✅ 已加入 {voice_channel.name}！", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"❌ 加入失敗：{e}", ephemeral=True)
 
-    # ========== /leave ==========
-    @app_commands.command(name="leave", description="機器人離開語音頻道")
-    async def leave(self, interaction: discord.Interaction):
-        voice_client = interaction.guild.voice_client
-        guild_id = interaction.guild.id
-        if not voice_client:
-            await interaction.response.send_message("❌ 我沒有在任何語音頻道中！", ephemeral=True)
-            return
+# ========== /leave ==========
+@bot.tree.command(name="leave", description="機器人離開語音頻道")
+async def leave(self, interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)  # ✅ 先延遲回應
+    
+    voice_client = interaction.guild.voice_client
+    guild_id = interaction.guild.id
+    
+    if not voice_client:
+        await interaction.followup.send("❌ 我沒有在任何語音頻道中！", ephemeral=True)
+        return
+    
+    try:
         self.music_queues[guild_id] = []
         self.loop[guild_id] = False
         self.current_song_info[guild_id] = None
         self.is_playing[guild_id] = False
         await voice_client.disconnect()
-        await interaction.response.send_message("👋 已離開語音頻道！", ephemeral=True)
-
+        await interaction.followup.send("👋 已離開語音頻道！", ephemeral=True)
+    except Exception as e:
+        await interaction.followup.send(f"❌ 離開失敗：{e}", ephemeral=True)
     # ========== 播放清單功能 ==========
 
     @app_commands.command(name="playlist_create", description="建立播放清單")
