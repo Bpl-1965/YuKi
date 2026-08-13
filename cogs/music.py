@@ -29,7 +29,7 @@ class MusicCog(commands.Cog):
         }
         
         self.ytdl_format_options = {
-        'format': 'bestaudio/best',
+        'format': 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best',
         'restrictfilenames': True,
         'noplaylist': True,
         'nocheckcertificate': True,
@@ -39,7 +39,12 @@ class MusicCog(commands.Cog):
         'no_warnings': True,
         'default_search': 'auto',
         'source_address': '0.0.0.0',
-        'cookiefile': '/app/cookies.txt',  # ← 加上這行
+        'extractor_args': {
+            'youtube': {
+                'skip': ['dash', 'hls'],
+                'player_client': ['android', 'web']
+                }
+            }
         }
         self.ytdl = yt_dlp.YoutubeDL(self.ytdl_format_options)
 
