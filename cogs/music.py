@@ -29,16 +29,17 @@ class MusicCog(commands.Cog):
         }
         
         self.ytdl_format_options = {
-            'format': 'bestaudio/best',
-            'restrictfilenames': True,
-            'noplaylist': True,
-            'nocheckcertificate': True,
-            'ignoreerrors': False,
-            'logtostderr': False,
-            'quiet': True,
-            'no_warnings': True,
-            'default_search': 'auto',
-            'source_address': '0.0.0.0',
+        'format': 'bestaudio/best',
+        'restrictfilenames': True,
+        'noplaylist': True,
+        'nocheckcertificate': True,
+        'ignoreerrors': False,
+        'logtostderr': False,
+        'quiet': True,
+        'no_warnings': True,
+        'default_search': 'auto',
+        'source_address': '0.0.0.0',
+        'cookiefile': '/app/cookies.txt',  # ← 加上這行
         }
         self.ytdl = yt_dlp.YoutubeDL(self.ytdl_format_options)
 
