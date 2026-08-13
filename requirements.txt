@@ -2,3 +2,4 @@ discord.py
 aiohttp
 yt-dlp
 PyNaCl
+davey
