@@ -303,7 +303,7 @@ class MusicCog(commands.Cog):
         await interaction.response.send_message("▶️ 已繼續")
 
     # ========== /join ==========
-    @bot.tree.command(name="join", description="機器人加入語音頻道")
+    @app_commands.command(name="join", description="機器人加入語音頻道")
     async def join(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         
@@ -324,7 +324,7 @@ class MusicCog(commands.Cog):
             await interaction.followup.send(f"❌ 加入失敗：{e}", ephemeral=True)
 
     # ========== /leave ==========
-    @bot.tree.command(name="leave", description="機器人離開語音頻道")
+    @app_commands.command(name="leave", description="機器人離開語音頻道")
     async def leave(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         
