@@ -23,8 +23,9 @@ class MusicCog(commands.Cog):
         self.load_playlists()
         
         self.ffmpeg_options = {
-         'options': '-vn',
-         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
+        'options': '-vn',
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'executable': '/usr/bin/ffmpeg'
         }
         
         self.ytdl_format_options = {
