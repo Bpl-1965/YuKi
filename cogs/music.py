@@ -39,6 +39,7 @@ class MusicCog(commands.Cog):
         'no_warnings': True,
         'default_search': 'auto',
         'source_address': '0.0.0.0',
+        'cookiefile': '/app/cookies.txt', 
         'extractor_args': {
             'youtube': {
                 'skip': ['dash', 'hls'],
