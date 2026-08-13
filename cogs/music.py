@@ -259,43 +259,46 @@ class MusicCog(commands.Cog):
             await interaction.followup.send(f"❌ 上傳失敗：{e}", ephemeral=True)
 
     # ========== /local ==========
-    @app_commands.command(name="local", description="隨機播放本地 MP3")
-    async def play_local(self, interaction: discord.Interaction):
-        local_songs = self.get_local_songs()
-        if not local_songs:
-            await interaction.response.send_message("❌ mp3 資料夾中沒有歌曲！請先用 /upload 上傳。")
-            return
-        
-        await interaction.response.defer()
-        if not interaction.user.voice:
-            await interaction.followup.send("❌ 你沒有在語音頻道中！")
-            return
-        
-        voice_channel = interaction.user.voice.channel
-        voice_client = interaction.guild.voice_client
-        if not voice_client:
-            voice_client = await voice_channel.connect()
-        elif voice_client.channel != voice_channel:
-            await voice_client.move_to(voice_channel)
-        
-        guild_id = interaction.guild.id
-        if guild_id not in self.music_queues:
-            self.music_queues[guild_id] = []
-        
-        song = random.choice(local_songs)
-        audio = discord.FFmpegOpusAudio(song['path'], **self.ffmpeg_options)
-        
-        self.music_queues[guild_id].append({
-            'audio': audio,
-            'title': song['title'],
-            'audio_url': song['path'],
-            'requester': interaction.user
-        })
-        
-        await interaction.followup.send(f"🎵 已加入佇列：**{song['title']}** (本地檔案)")
-        
-        if not voice_client.is_playing():
-            await self.play_next(interaction.guild, interaction.channel)
+    @bot.tree.command(name="local", description="隨機播放本地 MP3")
+async def play_local(self, interaction: discord.Interaction):
+    local_songs = self.get_local_songs()
+    
+    if not local_songs:
+        await interaction.response.send_message("❌ mp3 資料夾中沒有歌曲！")
+        return
+    
+    # ✅ 先回覆，避免超時
+    await interaction.response.defer()
+    
+    if not interaction.user.voice:
+        await interaction.followup.send("❌ 你沒有在語音頻道中！")
+        return
+    
+    voice_channel = interaction.user.voice.channel
+    voice_client = interaction.guild.voice_client
+    if not voice_client:
+        voice_client = await voice_channel.connect()
+    elif voice_client.channel != voice_channel:
+        await voice_client.move_to(voice_channel)
+    
+    # 隨機選一首
+    song = random.choice(local_songs)
+    
+    # ✅ 檢查檔案是否存在
+    if not os.path.exists(song['path']):
+        await interaction.followup.send(f"❌ 檔案不存在：{song['path']}")
+        return
+    
+    # ✅ 直接播放（不經過佇列）
+    audio = discord.FFmpegPCMAudio(song['path'], **self.ffmpeg_options)
+    
+    def after_playing(error):
+        if error:
+            print(f"播放錯誤：{error}")
+    
+    voice_client.play(audio, after=after_playing)
+    
+    await interaction.followup.send(f"🎵 正在播放：**{song['title']}**")
 
     # ========== /play ==========
     @app_commands.command(name="play", description="播放音樂")
