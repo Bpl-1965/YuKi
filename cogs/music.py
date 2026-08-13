@@ -7,6 +7,9 @@ import functools
 import time
 import json
 import os
+import random
+import aiohttp
+import aiofiles
 
 class MusicCog(commands.Cog):
     def __init__(self, bot):
@@ -29,21 +32,20 @@ class MusicCog(commands.Cog):
         }
         
         self.ytdl_format_options = {
-        'format': 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio/best',
-        'restrictfilenames': True,
-        'noplaylist': True,
-        'nocheckcertificate': True,
-        'ignoreerrors': False,
-        'logtostderr': False,
-        'quiet': True,
-        'no_warnings': True,
-        'default_search': 'auto',
-        'source_address': '0.0.0.0',
-        'cookiefile': '/app/cookies.txt', 
-        'extractor_args': {
-            'youtube': {
-                'skip': ['dash', 'hls'],
-                'player_client': ['android', 'web']
+            'format': 'bestaudio/best',
+            'restrictfilenames': True,
+            'noplaylist': True,
+            'nocheckcertificate': True,
+            'ignoreerrors': False,
+            'logtostderr': False,
+            'quiet': True,
+            'no_warnings': True,
+            'default_search': 'auto',
+            'source_address': '0.0.0.0',
+            'extractor_args': {
+                'youtube': {
+                    'skip': ['dash', 'hls'],
+                    'player_client': ['android', 'web']
                 }
             }
         }
@@ -63,6 +65,22 @@ class MusicCog(commands.Cog):
     def save_playlists(self):
         with open(self.playlist_file, 'w', encoding='utf-8') as f:
             json.dump(self.playlists, f, ensure_ascii=False, indent=2)
+
+    # ========== 本地 MP3 管理 ==========
+    def get_local_songs(self):
+        """獲取 mp3 資料夾中的所有歌曲"""
+        mp3_folder = "mp3"
+        if not os.path.exists(mp3_folder):
+            return []
+        
+        songs = []
+        for file in os.listdir(mp3_folder):
+            if file.endswith(('.mp3', '.m4a', '.wav')):
+                songs.append({
+                    'title': os.path.splitext(file)[0],
+                    'path': os.path.join(mp3_folder, file)
+                })
+        return songs
 
     # ========== 音訊獲取 ==========
     async def get_audio(self, url):
@@ -207,6 +225,78 @@ class MusicCog(commands.Cog):
         await asyncio.sleep(1.5)
         await self.play_next(guild, channel)
 
+    # ========== /upload ==========
+    @app_commands.command(name="upload", description="上傳 MP3 檔案到機器人")
+    @app_commands.describe(file="上傳 MP3 檔案")
+    async def upload(self, interaction: discord.Interaction, file: discord.Attachment):
+        if not file.filename.endswith(('.mp3', '.m4a', '.wav')):
+            await interaction.response.send_message("❌ 請上傳 MP3、M4A 或 WAV 檔案！", ephemeral=True)
+            return
+        
+        if file.size > 10 * 1024 * 1024:
+            await interaction.response.send_message("❌ 檔案太大！請上傳小於 10MB 的檔案。", ephemeral=True)
+            return
+        
+        await interaction.response.defer(ephemeral=True)
+        
+        try:
+            mp3_folder = "mp3"
+            if not os.path.exists(mp3_folder):
+                os.makedirs(mp3_folder)
+            
+            file_path = os.path.join(mp3_folder, file.filename)
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.get(file.url) as response:
+                    if response.status == 200:
+                        async with aiofiles.open(file_path, 'wb') as f:
+                            await f.write(await response.read())
+                        
+                        await interaction.followup.send(f"✅ 已上傳：**{file.filename}**", ephemeral=True)
+                    else:
+                        await interaction.followup.send("❌ 下載失敗，請稍後再試。", ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(f"❌ 上傳失敗：{e}", ephemeral=True)
+
+    # ========== /local ==========
+    @app_commands.command(name="local", description="隨機播放本地 MP3")
+    async def play_local(self, interaction: discord.Interaction):
+        local_songs = self.get_local_songs()
+        if not local_songs:
+            await interaction.response.send_message("❌ mp3 資料夾中沒有歌曲！請先用 /upload 上傳。")
+            return
+        
+        await interaction.response.defer()
+        if not interaction.user.voice:
+            await interaction.followup.send("❌ 你沒有在語音頻道中！")
+            return
+        
+        voice_channel = interaction.user.voice.channel
+        voice_client = interaction.guild.voice_client
+        if not voice_client:
+            voice_client = await voice_channel.connect()
+        elif voice_client.channel != voice_channel:
+            await voice_client.move_to(voice_channel)
+        
+        guild_id = interaction.guild.id
+        if guild_id not in self.music_queues:
+            self.music_queues[guild_id] = []
+        
+        song = random.choice(local_songs)
+        audio = discord.FFmpegOpusAudio(song['path'], **self.ffmpeg_options)
+        
+        self.music_queues[guild_id].append({
+            'audio': audio,
+            'title': song['title'],
+            'audio_url': song['path'],
+            'requester': interaction.user
+        })
+        
+        await interaction.followup.send(f"🎵 已加入佇列：**{song['title']}** (本地檔案)")
+        
+        if not voice_client.is_playing():
+            await self.play_next(interaction.guild, interaction.channel)
+
     # ========== /play ==========
     @app_commands.command(name="play", description="播放音樂")
     @app_commands.describe(query="歌曲名稱或 YouTube 網址")
@@ -227,6 +317,26 @@ class MusicCog(commands.Cog):
         if guild_id not in self.music_queues:
             self.music_queues[guild_id] = []
         
+        # ✅ 檢查是否為本地播放指令
+        local_songs = self.get_local_songs()
+        if query.lower() in ["local", "隨機", "random"] and local_songs:
+            song = random.choice(local_songs)
+            audio = discord.FFmpegOpusAudio(song['path'], **self.ffmpeg_options)
+            
+            self.music_queues[guild_id].append({
+                'audio': audio,
+                'title': song['title'],
+                'audio_url': song['path'],
+                'requester': interaction.user
+            })
+            
+            await interaction.followup.send(f"🎵 已加入佇列：**{song['title']}** (本地檔案)")
+            
+            if not voice_client.is_playing():
+                await self.play_next(interaction.guild, interaction.channel)
+            return
+        
+        # YouTube 播放
         try:
             async with interaction.channel.typing():
                 audio, title, audio_url = await self.get_audio(query)
