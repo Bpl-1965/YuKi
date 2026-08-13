@@ -7,6 +7,7 @@ import os
 import random
 import json
 import time
+import ytc  # ✅ 自動獲取 YouTube Cookie
 
 class MusicCog(commands.Cog):
     def __init__(self, bot):
@@ -22,14 +23,14 @@ class MusicCog(commands.Cog):
         self.playlist_file = "playlists.json"
         self.load_playlists()
         
-        # ✅ FFmpeg 設定（Railway 專用）
+        # ✅ FFmpeg 設定（含 executable）
         self.ffmpeg_options = {
             'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
             'options': '-vn',
-            'executable': '/usr/bin/ffmpeg'  # ✅ 加上這行
+            'executable': '/usr/bin/ffmpeg'
         }
         
-        # ✅ yt-dlp 設定（不下載，只串流）
+        # ✅ yt-dlp 設定（使用 ytc 自動獲取 Cookie）
         self.ydl_options = {
             'format': 'bestaudio/best',
             'noplaylist': True,
@@ -37,7 +38,7 @@ class MusicCog(commands.Cog):
             'no_warnings': True,
             'default_search': 'auto',
             'source_address': '0.0.0.0',
-            'cookiefile': '/app/cookies.txt',
+            'http_headers': ytc.youtube(),  # ✅ 自動獲取 Cookie
             'extractor_args': {
                 'youtube': {
                     'player_client': ['android', 'web'],
@@ -79,7 +80,7 @@ class MusicCog(commands.Cog):
 
     # ========== 音訊獲取 ==========
     async def get_audio_url(self, query):
-        """只獲取音訊串流 URL，不下載"""
+        """使用 ytc 自動獲取 Cookie 來串流"""
         try:
             loop = asyncio.get_event_loop()
             data = await loop.run_in_executor(None, lambda: self.ytdl.extract_info(query, download=False))
@@ -125,12 +126,10 @@ class MusicCog(commands.Cog):
         if not voice_client:
             return
         
-        # ✅ 如果正在播放，跳過
         if voice_client.is_playing():
             print("⏳ 正在播放中")
             return
         
-        # ✅ 如果佇列空了，等待新歌（不斷開）
         if guild_id not in self.music_queues or not self.music_queues[guild_id]:
             print("📭 佇列已空")
             return
@@ -148,23 +147,24 @@ class MusicCog(commands.Cog):
         def after_playing(error):
             self.is_playing[guild_id] = False
             if error:
-                print(f"播放錯誤：{error}")
+                print(f"❌ 播放錯誤：{error}")
                 return
             asyncio.run_coroutine_threadsafe(
                 self.play_next(guild, channel), 
                 self.bot.loop
             )
         
-        audio = discord.FFmpegPCMAudio(audio_url, **self.ffmpeg_options)
-        voice_client.play(audio, after=after_playing)
+        try:
+            audio = discord.FFmpegPCMAudio(audio_url, **self.ffmpeg_options)
+            voice_client.play(audio, after=after_playing)
+        except Exception as e:
+            print(f"❌ 播放失敗：{e}")
+            self.is_playing[guild_id] = False
+            return
         
         if channel is None:
             channel = guild.system_channel or guild.text_channels[0]
         await self._send_message(channel, f"🎶 正在播放：**{title}** (要求者：{requester.mention})")
-
-    async def _delayed_play_next(self, guild, channel):
-        await asyncio.sleep(1.5)
-        await self.play_next(guild, channel)
 
     # ========== /upload ==========
     @app_commands.command(name="upload", description="上傳 MP3 檔案到機器人")
