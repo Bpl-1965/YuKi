@@ -1,2 +1,3 @@
-# YuKi
-discord bot for only me to use 
+# Read
+這是一個純ai製造的腳本, 到此完全放棄使用. 
+
